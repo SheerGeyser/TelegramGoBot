@@ -52,38 +52,50 @@ func getUpdates(botApi string, offset int) ([]Update, error) {
 
 func respond(botApi string, update Update) error {
 	var botMessage BotMessage
-	//var botSendPhoto BotSendPhoto
+	var botSendPhoto BotSendPhoto
 	botMessage.ChatId = update.Message.Chat.ChatId
 	botMessage.Text = update.Message.Text
-	createBarcode(update.Message.Chat.ChatId)
 
-	buf, err := json.Marshal(botMessage)
+	var chatIdString string = strconv.Itoa(update.Message.Chat.ChatId)
+	photoBytes, err := ioutil.ReadFile(chatIdString + ".png")
+	if err != nil {
+		panic(err)
+	}
+	botSendPhoto.ChatId = update.Message.Chat.ChatId
+	botSendPhoto.Photo = string(photoBytes)
+
+	bufMsg, err := json.Marshal(botMessage)
 	if err != nil {
 		return err
 	}
-	postAnsMsg, err := http.Post(botApi+"sendMessage", "application/json", bytes.NewBuffer(buf))
+	postAnsMsg, err := http.Post(botApi+"sendMessage", "application/json", bytes.NewBuffer(bufMsg))
 	if err != nil {
 		log.Println("post status:" + postAnsMsg.Status)
 		return err
 	}
-	postAnsImg, err := http.Post(botApi+"sendPhoto", "application/json", bytes.NewBuffer(buf))
+
+	bufImg, err := json.Marshal(botSendPhoto)
+	if err != nil {
+		return err
+	}
+	postAnsImg, err := http.Post(botApi+"sendPhoto", "application/json", bytes.NewBuffer(bufImg))
+	fmt.Println(bytes.NewBuffer(bufImg))
 	if err != nil {
 		log.Println("post status:" + postAnsImg.Status)
 		return err
 	}
-
 	return nil
 }
 
-func createBarcode(chatId int) error {
+func createBarcode(chatId string) error {
 	// Create the barcode
-	qrCode, _ := qr.Encode(strconv.Itoa(chatId), qr.M, qr.Auto)
+	qrCode, _ := qr.Encode(chatId, qr.M, qr.Auto)
 
 	// Scale the barcode to 200x200 pixels
 	qrCode, _ = barcode.Scale(qrCode, 200, 200)
 
 	// create the output file
-	name := strconv.Itoa(chatId) + ".png"
+	name := chatId + ".png"
 
 	file, err := os.Create(name)
 	defer file.Close()
